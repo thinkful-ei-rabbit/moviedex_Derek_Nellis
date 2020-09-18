@@ -8,6 +8,14 @@ const FILMS = require('./films.json');
 
 const API_TOKEN = process.env.API_TOKEN;
 
+const {
+  paramValidator,
+  genreFilter,
+  countryFilter,
+  avgVoteFilter
+} = require('./utils');
+
+
 const app = express();
 app.use(cors());
 app.use(helmet());
@@ -21,58 +29,28 @@ app.use('/', function tokenValidator(req, res, next) {
   next();
 });
 
-app.use('/movie', function paramValidator(req, res, next) {
-  const { genre, country, avg_vote } = req.query;
-
-  if (genre && genre.length < 3) {
-    return res
-      .status(400)
-      .json('Genre must be at least 3 characters in length.');
-  }
-
-  if (country && country.length < 3) {
-    return res
-      .status(400)
-      .json('Country must be at least 3 characters in length.');
-  }
-
-  const vote = Number(avg_vote);
-  if (avg_vote) {
-    if (isNaN(vote) || vote < 0 || vote > 10) {
-      return res
-        .status(400)
-        .json('Invalid rating: must be number between 0-10');
-    }
-  }
-
-  next();
-});
-
-const movieFilters = {
-  genreFilter: (genre, results) => {
-    results = results.filter(film =>
-      film.genre.toLowerCase().includes(genre.toLowerCase())
-    );
-    return results;
-  },
-  countryFilter: (country, results) => {
-    results = results.filter(film =>
-      film.genre.toLowerCase().includes(country.toLowerCase())
-    );
-    return results;
-  },
-  avgVoteFilter: (avg_vote, results) => {
-    results = results.filter(film =>
-      Number(film.avg_vote) >= Number(avg_vote)
-    );
-    return results;
-  }
-};
-
 app.get('/movie', (req, res) => {
   const { genre, country, avg_vote } = req.query;
-  const { genreFilter, countryFilter, avgVoteFilter } = movieFilters;
   let results = [...FILMS];
+
+  const validation = paramValidator(genre, country, avg_vote)
+  if (validation === 'genre') {
+    return res
+      .status(400)
+      .json('"genre" must be at least 3 characters in length.');
+  }
+
+  if (validation === 'country') {
+    return res
+      .status(400)
+      .json('"country" must be at least 3 characters in length.');
+  }
+
+  if (validation === 'avg_vote') {
+    return res
+      .status(400)
+      .json('Invalid rating: must be number between 0-10');
+  }
 
   if (genre) results = genreFilter(genre, results);
   if (country) results = countryFilter(country, results);
@@ -82,7 +60,9 @@ app.get('/movie', (req, res) => {
   res.json(results);
 });
 
-const PORT = 8000;
+const PORT = 8080;
 app.listen(PORT, () => {
   console.log(`Loading Express . . . running on http://localhost:${PORT}`);
 });
+
+module.exports = app;
